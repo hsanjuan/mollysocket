@@ -81,6 +81,16 @@ pub trait WebSocketConnection {
 
         log::info!("WebSocket handshake has been successfully completed");
 
+        // Reset keepalive timer after handshake to prevent a race where the timer
+        // expires immediately: if enough time elapsed between when last_keepalive was
+        // set and now, loop_keepalive's first check would fire before any server
+        // keepalive response could arrive.
+        let keepalive = self.get_last_keepalive();
+        {
+            let mut ka = keepalive.lock().unwrap();
+            *ka = Instant::now();
+        }
+
         // Websocket I/O
         let (ws_write, ws_read) = ws_stream.split();
         // channel to websocket ws_write
